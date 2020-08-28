@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
-const http = require('http');
-const { spawn } = require('child_process');
+console.log("loading happo-cypress");
+const http = require("http");
+const { spawn } = require("child_process");
 
-const makeRequest = require('happo.io/build/makeRequest').default;
-const compareReports = require('happo.io/build/commands/compareReports')
+const makeRequest = require("happo.io/build/makeRequest").default;
+const compareReports = require("happo.io/build/commands/compareReports")
   .default;
 
-const loadHappoConfig = require('../src/loadHappoConfig');
-const resolveEnvironment = require('../src/resolveEnvironment');
+const loadHappoConfig = require("../src/loadHappoConfig");
+const resolveEnvironment = require("../src/resolveEnvironment");
 
 const allRequestIds = new Set();
 
@@ -21,7 +22,7 @@ function failWithMissingCommand() {
 }
 
 function parsePort(argv) {
-  const i = argv.indexOf('--port');
+  const i = argv.indexOf("--port");
   if (i === -1) {
     return 5339;
   }
@@ -31,31 +32,33 @@ function parsePort(argv) {
 
 function requestHandler(req, res) {
   const bodyParts = [];
-  req.on('data', chunk => {
+  req.on("data", (chunk) => {
     bodyParts.push(chunk.toString());
   });
-  req.on('end', () => {
+  req.on("end", () => {
+    console.log("end of request");
     const potentialIds = bodyParts
-      .join('')
-      .split('\n')
+      .join("")
+      .split("\n")
       .filter(Boolean)
-      .map(requestId => parseInt(requestId, 10));
+      .map((requestId) => parseInt(requestId, 10));
 
-    if (potentialIds.some(id => isNaN(id))) {
+    if (potentialIds.some((id) => isNaN(id))) {
       res.writeHead(400);
-      res.end('invalid payload');
+      res.end("invalid payload");
       return;
     }
 
-    potentialIds.forEach(requestId => {
+    potentialIds.forEach((requestId) => {
       allRequestIds.add(parseInt(requestId, 10));
     });
     res.writeHead(200);
-    res.end('');
+    res.end("");
   });
 }
 
 async function finalizeAll() {
+  console.log("finalized");
   const happoConfig = await loadHappoConfig();
   if (!happoConfig) {
     return;
@@ -63,19 +66,19 @@ async function finalizeAll() {
 
   const { beforeSha, afterSha, link, message, nonce } = resolveEnvironment();
   if (!nonce) {
-    throw new Error('[HAPPO] Missing HAPPO_NONCE environment variable');
+    throw new Error("[HAPPO] Missing HAPPO_NONCE environment variable");
   }
   await makeRequest(
     {
       url: `${happoConfig.endpoint}/api/async-reports/${afterSha}/finalize`,
-      method: 'POST',
+      method: "POST",
       json: true,
       body: {
         project: happoConfig.project,
         nonce,
       },
     },
-    { ...happoConfig, maxTries: 3 },
+    { ...happoConfig, maxTries: 3 }
   );
 
   if (beforeSha && beforeSha !== afterSha) {
@@ -102,7 +105,7 @@ async function finalizeHappoReport() {
   const reportResult = await makeRequest(
     {
       url: `${happoConfig.endpoint}/api/async-reports/${afterSha}`,
-      method: 'POST',
+      method: "POST",
       json: true,
       body: {
         requestIds: [...allRequestIds],
@@ -110,14 +113,14 @@ async function finalizeHappoReport() {
         nonce,
       },
     },
-    { ...happoConfig, maxTries: 3 },
+    { ...happoConfig, maxTries: 3 }
   );
 
   if (beforeSha) {
     const jobResult = await makeRequest(
       {
         url: `${happoConfig.endpoint}/api/jobs/${beforeSha}/${afterSha}`,
-        method: 'POST',
+        method: "POST",
         json: true,
         body: {
           project: happoConfig.project,
@@ -125,7 +128,7 @@ async function finalizeHappoReport() {
           message,
         },
       },
-      { ...happoConfig, maxTries: 3 },
+      { ...happoConfig, maxTries: 3 }
     );
     if (beforeSha !== afterSha && !nonce) {
       await compareReports(beforeSha, afterSha, happoConfig, {
@@ -142,15 +145,15 @@ async function finalizeHappoReport() {
 
 function startServer(port) {
   const server = http.createServer(requestHandler);
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     server.listen(port, resolve);
   });
 }
 
 async function init(argv) {
-  const dashdashIndex = argv.indexOf('--');
+  const dashdashIndex = argv.indexOf("--");
   if (dashdashIndex === -1) {
-    const isFinalizeCommand = argv[argv.length - 1] === 'finalize';
+    const isFinalizeCommand = argv[argv.length - 1] === "finalize";
     if (isFinalizeCommand) {
       await finalizeAll();
       return;
@@ -169,22 +172,23 @@ async function init(argv) {
   console.log(`[HAPPO] Listening on port ${serverPort}`);
 
   const child = spawn(commandParts[0], commandParts.slice(1), {
-    stdio: 'inherit',
+    stdio: "inherit",
     env: { ...process.env, HAPPO_CYPRESS_PORT: serverPort },
-    shell: process.platform == 'win32',
+    shell: process.platform == "win32",
   });
 
-  child.on('error', e => {
+  child.on("error", (e) => {
     console.error(e);
     process.exit(1);
   });
 
-  child.on('close', async code => {
+  child.on("close", async (code) => {
     if (code === 0) {
       try {
         await finalizeHappoReport();
+        console.log("successfully finalized report");
       } catch (e) {
-        console.error('Failed to finalize Happo report', e);
+        console.error("Failed to finalize Happo report", e);
         process.exit(1);
       }
     }
@@ -192,7 +196,7 @@ async function init(argv) {
   });
 }
 
-init(process.argv).catch(e => {
+init(process.argv).catch((e) => {
   console.error(e);
   process.exit(1);
 });
