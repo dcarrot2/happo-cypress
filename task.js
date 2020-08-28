@@ -92,6 +92,11 @@ module.exports = {
     targets,
   }) {
     if (!happoConfig) {
+      if (HAPPO_DEBUG) {
+        console.log(
+          `[HAPPO] - no config fonud when trying to register a snapshot ${happoConfig}`
+        );
+      }
       return null;
     }
     const variant = dedupeVariant(component, rawVariant);
@@ -103,6 +108,9 @@ module.exports = {
       }
       allCssBlocks.push(block);
     });
+    console.log(
+      `[HAPPO] - successfully added snapshots ${snapshots.length} ${snapshots}`
+    );
     return null;
   },
 
