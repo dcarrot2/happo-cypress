@@ -1,13 +1,13 @@
-const { URL } = require('url');
-const nodeFetch = require('node-fetch');
-const makeRequest = require('happo.io/build/makeRequest').default;
+const { URL } = require("url");
+const nodeFetch = require("node-fetch");
+const makeRequest = require("happo.io/build/makeRequest").default;
 
-const createAssetPackage = require('./src/createAssetPackage');
-const proxiedFetch = require('./src/fetch');
-const findCSSAssetUrls = require('./src/findCSSAssetUrls');
-const loadHappoConfig = require('./src/loadHappoConfig');
-const makeAbsolute = require('./src/makeAbsolute');
-const resolveEnvironment = require('./src/resolveEnvironment');
+const createAssetPackage = require("./src/createAssetPackage");
+const proxiedFetch = require("./src/fetch");
+const findCSSAssetUrls = require("./src/findCSSAssetUrls");
+const loadHappoConfig = require("./src/loadHappoConfig");
+const makeAbsolute = require("./src/makeAbsolute");
+const resolveEnvironment = require("./src/resolveEnvironment");
 
 const { HAPPO_CYPRESS_PORT, HAPPO_DEBUG } = process.env;
 
@@ -20,8 +20,8 @@ let knownComponentVariants = {};
 function getUniqueUrls(urls) {
   const seenKeys = new Set();
   const result = [];
-  urls.forEach(url => {
-    const key = [url.url, url.baseUrl].join('||');
+  urls.forEach((url) => {
+    const key = [url.url, url.baseUrl].join("||");
     if (!seenKeys.has(key)) {
       result.push(url);
       seenKeys.add(key);
@@ -41,7 +41,7 @@ function makeExternalUrlsAbsolute(text, absUrl) {
 }
 
 async function downloadCSSContent(blocks) {
-  const promises = blocks.map(async block => {
+  const promises = blocks.map(async (block) => {
     if (block.href) {
       const absUrl = makeAbsolute(block.href, block.baseUrl);
       if (HAPPO_DEBUG) {
@@ -50,21 +50,21 @@ async function downloadCSSContent(blocks) {
       const res = await proxiedFetch(absUrl);
       if (!res.ok) {
         console.warn(
-          `[HAPPO] Failed to fetch CSS file from ${block.href}. This might mean styles are missing in your Happo screenshots`,
+          `[HAPPO] Failed to fetch CSS file from ${block.href}. This might mean styles are missing in your Happo screenshots`
         );
         return;
       }
       let text = await res.text();
       if (HAPPO_DEBUG) {
         console.log(
-          `[HAPPO] Done downloading CSS file from ${absUrl}. Got ${text.length} chars back.`,
+          `[HAPPO] Done downloading CSS file from ${absUrl}. Got ${text.length} chars back.`
         );
       }
       if (!absUrl.startsWith(block.baseUrl)) {
         text = makeExternalUrlsAbsolute(text, absUrl);
       }
       block.content = text;
-      block.assetsBaseUrl = absUrl.replace(/\/[^/]*$/, '/');
+      block.assetsBaseUrl = absUrl.replace(/\/[^/]*$/, "/");
       delete block.href;
     }
   });
@@ -97,8 +97,8 @@ module.exports = {
     const variant = dedupeVariant(component, rawVariant);
     snapshotAssetUrls.push(...assetUrls);
     snapshots.push({ html, component, variant, targets });
-    cssBlocks.forEach(block => {
-      if (allCssBlocks.some(b => b.key === block.key)) {
+    cssBlocks.forEach((block) => {
+      if (allCssBlocks.some((b) => b.key === block.key)) {
         return;
       }
       allCssBlocks.push(block);
@@ -115,7 +115,15 @@ module.exports = {
   },
 
   async happoTeardown() {
+    if (HAPPO_DEBUG) {
+      console.log(
+        `[HAPPO] running teardown with ${snapshots.length} ${snapshots}`
+      );
+    }
     if (!happoConfig) {
+      if (HAPPO_DEBUG) {
+        console.log(`[HAPPO] - no config found ${happoConfig}`);
+      }
       return null;
     }
     if (!snapshots.length) {
@@ -123,9 +131,9 @@ module.exports = {
     }
     await downloadCSSContent(allCssBlocks);
     const allUrls = [...snapshotAssetUrls];
-    allCssBlocks.forEach(block => {
-      findCSSAssetUrls(block.content).forEach(url =>
-        allUrls.push({ url, baseUrl: block.assetsBaseUrl || block.baseUrl }),
+    allCssBlocks.forEach((block) => {
+      findCSSAssetUrls(block.content).forEach((url) =>
+        allUrls.push({ url, baseUrl: block.assetsBaseUrl || block.baseUrl })
       );
     });
 
@@ -138,41 +146,41 @@ module.exports = {
     const assetsRes = await makeRequest(
       {
         url: `${happoConfig.endpoint}/api/snap-requests/assets/${hash}`,
-        method: 'POST',
+        method: "POST",
         json: true,
         formData: {
           payload: {
             options: {
-              filename: 'payload.zip',
-              contentType: 'application/zip',
+              filename: "payload.zip",
+              contentType: "application/zip",
             },
             value: buffer,
           },
         },
       },
-      { ...happoConfig, maxTries: 3 },
+      { ...happoConfig, maxTries: 3 }
     );
     if (HAPPO_DEBUG) {
-      console.log('[HAPPO] Done uploading assets package, got', assetsRes);
+      console.log("[HAPPO] Done uploading assets package, got", assetsRes);
     }
 
-    let globalCSS = allCssBlocks.map(block => block.content).join('\n');
+    let globalCSS = allCssBlocks.map((block) => block.content).join("\n");
     for (const url of uniqueUrls) {
       if (/^\/_external\//.test(url.name) && url.name !== url.url) {
         globalCSS = globalCSS.split(url.url).join(url.name);
-        snapshots.forEach(snapshot => {
+        snapshots.forEach((snapshot) => {
           snapshot.html = snapshot.html.split(url.url).join(url.name);
         });
       }
     }
     const allRequestIds = [];
     await Promise.all(
-      Object.keys(happoConfig.targets).map(async name => {
+      Object.keys(happoConfig.targets).map(async (name) => {
         if (HAPPO_DEBUG) {
           console.log(`[HAPPO] Sending snap-request(s) for target=${name}`);
         }
         const snapshotsForTarget = snapshots.filter(
-          ({ targets }) => !targets || targets.includes(name),
+          ({ targets }) => !targets || targets.includes(name)
         );
         const requestIds = await happoConfig.targets[name].execute({
           targetName: name,
@@ -187,24 +195,24 @@ module.exports = {
         if (HAPPO_DEBUG) {
           console.log(
             `[HAPPO] Snap-request(s) for target=${name} created with ID(s)=${requestIds.join(
-              ',',
-            )}`,
+              ","
+            )}`
           );
         }
         allRequestIds.push(...requestIds);
-      }),
+      })
     );
     if (HAPPO_CYPRESS_PORT) {
       // We're running with `happo-cypress --`
       const fetchRes = await nodeFetch(
         `http://localhost:${HAPPO_CYPRESS_PORT}/`,
         {
-          method: 'POST',
-          body: allRequestIds.join('\n'),
-        },
+          method: "POST",
+          body: allRequestIds.join("\n"),
+        }
       );
       if (!fetchRes.ok) {
-        throw new Error('Failed to communicate with happo-cypress server');
+        throw new Error("Failed to communicate with happo-cypress server");
       }
     } else {
       // We're not running with `happo-cypress --`. We'll create a report
@@ -214,14 +222,14 @@ module.exports = {
       const reportResult = await makeRequest(
         {
           url: `${happoConfig.endpoint}/api/async-reports/${afterSha}`,
-          method: 'POST',
+          method: "POST",
           json: true,
           body: {
             requestIds: allRequestIds,
             project: happoConfig.project,
           },
         },
-        { ...happoConfig, maxTries: 3 },
+        { ...happoConfig, maxTries: 3 }
       );
       console.log(`[HAPPO] ${reportResult.url}`);
       return null;
